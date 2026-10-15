@@ -19,3 +19,4 @@ The main objective of JobBridge is to provide a simple, organized, and user-frie
 
 - Vikash Sisodia – Roll No. 2415001774
 - Vichitra Solanki – Roll No. 2415001767
+- Rohit Kumar - Roll No. 2415001323
