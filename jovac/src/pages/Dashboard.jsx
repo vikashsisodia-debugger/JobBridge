@@ -26,21 +26,48 @@ export default function Dashboard() {
     if (!stored) { navigate('/'); return }
     const u = JSON.parse(stored)
     setUser(u)
-    const users = JSON.parse(localStorage.getItem('jovac_users') || '[]')
-    const found = users.find(x => x.id === u.id)
-    if (found?.created_at) {
-      setJoined(new Date(found.created_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' }))
+
+    if (u?.created_at) {
+      setJoined(new Date(u.created_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' }))
     }
+
+    // Verify session with backend /api/me
+    fetch('/api/me', { credentials: 'include' })
+      .then(res => {
+        if (!res.ok) {
+          localStorage.removeItem('jovac_user')
+          navigate('/')
+        } else {
+          return res.json()
+        }
+      })
+      .then(data => {
+        if (data?.user) {
+          setUser(prev => ({ ...prev, ...data.user }))
+          if (data.user.created_at) {
+            setJoined(new Date(data.user.created_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' }))
+          }
+        }
+      })
+      .catch(() => {
+        // If network error during verify, keep cached session
+      })
   }, [navigate])
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    try {
+      await fetch('/api/logout', { method: 'POST', credentials: 'include' })
+    } catch (e) {
+      // Ignore network errors on logout
+    }
     localStorage.removeItem('jovac_user')
     navigate('/')
   }
 
   if (!user) return null
 
-  const initials = user.full_name
+  const displayName = user.name || user.full_name || 'User'
+  const initials = displayName
     .split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2)
 
   const stats = [
@@ -59,10 +86,10 @@ export default function Dashboard() {
         <nav className="dash-nav" aria-label="Dashboard navigation">
           <div className="dash-logo">
             <LogoSVG />
-            <span>JOVAC</span>
+            <span>JobBridge</span>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-            <div className="dash-avatar" aria-label={`Avatar for ${user.full_name}`}>
+            <div className="dash-avatar" aria-label={`Avatar for ${displayName}`}>
               {initials}
             </div>
             <button
@@ -84,7 +111,7 @@ export default function Dashboard() {
         {/* Main content */}
         <main className="dash-main">
           <div className="dash-welcome">
-            <h1>Good day, {user.full_name.split(' ')[0]}! 👋</h1>
+            <h1>Good day, {displayName.split(' ')[0]}! 👋</h1>
             <p>Here's your career dashboard overview.</p>
           </div>
 
@@ -103,7 +130,7 @@ export default function Dashboard() {
           <div className="user-card" aria-label="User profile">
             <div className="user-avatar-lg" aria-hidden="true">{initials}</div>
             <div className="user-info">
-              <h2>{user.full_name}</h2>
+              <h2>{displayName}</h2>
               <p>{user.email}</p>
               {joined && <p style={{ fontSize: '0.82rem', marginBottom: '8px' }}>Joined {joined}</p>}
               <span className="user-badge">

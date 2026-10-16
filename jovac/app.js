@@ -326,7 +326,7 @@ document.getElementById('register-form').addEventListener('submit', async functi
   // const res = await fetch('/api/register', { method: 'POST', body: JSON.stringify({ fname, lname, email, password }) });
   // if (!res.ok) { showToast('An account with this email already exists.', 'error'); return; }
 
-  showToast('Account created! Welcome to JOVAC 🎉', 'success');
+  showToast('Account created! Welcome to JobBridge 🎉', 'success');
 
   setTimeout(() => { switchTab('login'); }, 1800);
 });

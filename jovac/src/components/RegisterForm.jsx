@@ -43,41 +43,58 @@ export default function RegisterForm({ onToast }) {
     return errs
   }
 
-  const handleSubmit = e => {
+  const handleSubmit = async e => {
     e.preventDefault()
     const errs = validate()
     if (Object.keys(errs).length) { setErrors(errs); return }
     setErrors({})
     setLoading(true)
 
-    setTimeout(() => {
-      const users = JSON.parse(localStorage.getItem('jovac_users') || '[]')
-      if (users.find(u => u.email === form.email.toLowerCase())) {
-        setErrors({ email: 'Email is already registered.' })
-        onToast('Email is already registered.', 'error')
+    try {
+      const res = await fetch('/api/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({
+          firstName: form.firstName.trim(),
+          lastName: form.lastName.trim(),
+          email: form.email.trim(),
+          password: form.password,
+        }),
+      })
+
+      const data = await res.json()
+
+      if (!res.ok) {
+        if (data.field) {
+          setErrors(prev => ({ ...prev, [data.field]: data.message }))
+        } else {
+          setErrors(prev => ({ ...prev, general: data.message || 'Registration failed.' }))
+        }
+        onToast(data.message || 'Registration failed.', 'error')
         setLoading(false)
         return
       }
 
-      const newUser = {
-        id: Date.now(),
-        full_name: `${form.firstName.trim()} ${form.lastName.trim()}`,
-        email: form.email.toLowerCase(),
-        password: form.password,
-        created_at: new Date().toISOString(),
-      }
-      users.push(newUser)
-      localStorage.setItem('jovac_users', JSON.stringify(users))
-
-      // Auto-login
+      // Store non-sensitive user profile for UI rendering (no passwords or tokens in localStorage)
       localStorage.setItem('jovac_user', JSON.stringify({
-        id: newUser.id, full_name: newUser.full_name, email: newUser.email,
+        id: data.user.id,
+        full_name: data.user.name,
+        email: data.user.email,
+        created_at: data.user.created_at,
       }))
 
-      onToast(`Account created! Welcome, ${newUser.full_name.split(' ')[0]}! 🎉`, 'success')
+      const displayName = data.user.name.split(' ')[0] || 'User'
+      onToast(`Account created! Welcome, ${displayName}! 🎉`, 'success')
       setTimeout(() => navigate('/dashboard'), 800)
+    } catch (err) {
+      console.error('Registration network error:', err)
+      const errorMsg = 'Could not reach server. Please ensure the backend is running.'
+      setErrors(prev => ({ ...prev, general: errorMsg }))
+      onToast(errorMsg, 'error')
+    } finally {
       setLoading(false)
-    }, 900)
+    }
   }
 
   return (
@@ -178,6 +195,11 @@ export default function RegisterForm({ onToast }) {
         </label>
       </div>
       {errors.terms && <span className="field-error">{errors.terms}</span>}
+
+      {/* General error */}
+      {errors.general && (
+        <span className="field-error" style={{ textAlign: 'center' }}>{errors.general}</span>
+      )}
 
       {/* Submit */}
       <button type="submit" id="register-submit-btn" className={`submit-btn${loading ? ' loading' : ''}`} disabled={loading}>

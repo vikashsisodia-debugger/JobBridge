@@ -20,36 +20,53 @@ export default function LoginForm({ onToast }) {
     return errs
   }
 
-  const handleSubmit = e => {
+  const handleSubmit = async e => {
     e.preventDefault()
     const errs = validate()
     if (Object.keys(errs).length) { setErrors(errs); return }
     setErrors({})
     setLoading(true)
 
-    setTimeout(() => {
-      // Check against localStorage users
-      const users = JSON.parse(localStorage.getItem('jovac_users') || '[]')
-      const found = users.find(u => u.email === form.email.toLowerCase())
+    try {
+      const res = await fetch('/api/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({
+          email: form.email.trim(),
+          password: form.password,
+        }),
+      })
 
-      if (!found || found.password !== form.password) {
-        setErrors({ general: 'Invalid email or password.' })
-        onToast('Invalid email or password.', 'error')
+      const data = await res.json()
+
+      if (!res.ok) {
+        const errorMsg = data.message || 'Invalid email or password.'
+        setErrors({ general: errorMsg })
+        onToast(errorMsg, 'error')
         setLoading(false)
         return
       }
 
-      // Store session
+      // Store non-sensitive user profile for UI rendering (no passwords or tokens in localStorage)
       localStorage.setItem('jovac_user', JSON.stringify({
-        id: found.id,
-        full_name: found.full_name,
-        email: found.email,
+        id: data.user.id,
+        full_name: data.user.name,
+        email: data.user.email,
+        created_at: data.user.created_at,
       }))
 
-      onToast(`Welcome back, ${found.full_name.split(' ')[0]}! 🎉`, 'success')
+      const displayName = data.user.name.split(' ')[0] || 'User'
+      onToast(`Welcome back, ${displayName}! 🎉`, 'success')
       setTimeout(() => navigate('/dashboard'), 800)
+    } catch (err) {
+      console.error('Login network error:', err)
+      const errorMsg = 'Could not reach server. Please ensure the backend is running.'
+      setErrors({ general: errorMsg })
+      onToast(errorMsg, 'error')
+    } finally {
       setLoading(false)
-    }, 900)
+    }
   }
 
   return (
